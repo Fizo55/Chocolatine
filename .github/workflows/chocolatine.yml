@@ -7,10 +7,12 @@ on:
   pull_request:
     branches-ignore:
       - 'ga-ignore-*'
+  check_suite:
+    types:
+      - completed
 
 env:
   MIRROR_URL: ${{ vars.MIRROR_URL }}
-  EPITECH_TOKEN: ${{ secrets.EPITECH_TOKEN }}
 
 jobs:
   check_coding_style:
@@ -18,7 +20,7 @@ jobs:
     container: ghcr.io/epitech/coding-style-checker:latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
       
       - name: Check coding style
         run: |
@@ -29,9 +31,9 @@ jobs:
           fi
 
       - name: Create check run
-        if: failure()
+        if: failure() && github.event_name != 'check_suite'
         run: |
-          curl -X POST -H "Authorization: token ${{ env.EPITECH_TOKEN }}" -H "Accept: application/vnd.github+json" \
+          curl -X POST -H "Authorization: token ${{ secrets.EPITECH_TOKEN }}" -H "Accept: application/vnd.github+json" \
             https://api.github.com/repos/${{ github.repository }}/check-runs \
             -d '{
               "name": "Coding Style Check",
@@ -62,13 +64,13 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v3
+        uses: actions/checkout@v2
         with:
           fetch-depth: 0
 
       - name: Set up SSH
         run: |
-          echo "${{ env.EPITECH_TOKEN }}" > private_key.pem
+          echo "${{ secrets.EPITECH_TOKEN }}" > private_key.pem
           chmod 600 private_key.pem
           ssh-keyscan -t rsa -H "$(echo "${{ env.MIRROR_URL }}" | awk -F@ '{print $2}' | awk -F/ '{print $1}' | awk -F: '{print $1}')" >> known_hosts
           export GIT_SSH_COMMAND="ssh -i private_key.pem -o UserKnownHostsFile=known_hosts"
@@ -77,4 +79,4 @@ jobs:
         uses: pixta-dev/repository-mirroring-action@main
         with:
           target_repo_url: ${{ env.MIRROR_URL }}
-          ssh_private_key: ${{ env.EPITECH_TOKEN }}
+          ssh_private_key: ${{ secrets.EPITECH_TOKEN }}
