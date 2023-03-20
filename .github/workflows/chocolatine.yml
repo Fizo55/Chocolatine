@@ -23,7 +23,8 @@ jobs:
         run: |
           echo "${{ secrets.EPITECH_TOKEN }}" > private_key.pem
           chmod 600 private_key.pem
-          ssh-keyscan -t rsa -H "$(echo "${{ env.MIRROR_URL }}" | awk -F@ '{print $2}' | awk -F/ '{print $1}')" >> ~/.ssh/known_hosts
+          ssh-keyscan -t rsa -H "$(echo "${{ env.MIRROR_URL }}" | awk -F@ '{print $2}' | awk -F/ '{print $1}')" >> known_hosts
+          export GIT_SSH_COMMAND="ssh -i private_key.pem -o UserKnownHostsFile=known_hosts"
 
       - name: Mirror repository
         uses: pixta-dev/repository-mirroring-action@main
