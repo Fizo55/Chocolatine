@@ -6,7 +6,7 @@ on:
       - 'ga-ignore-*'
   pull_request:
     branches-ignore:
-      - 'ga-ignore-*
+      - 'ga-ignore-*'
 
 env:
   MIRROR_URL: ${{ vars.MIRROR_URL }}
@@ -14,7 +14,6 @@ env:
 jobs:
   push_to_mirror:
     if: github.event_name == 'push'
-    needs: run_tests
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -24,7 +23,7 @@ jobs:
         run: |
           echo "${{ secrets.EPITECH_TOKEN }}" > private_key.pem
           chmod 600 private_key.pem
-          ssh-keyscan -t rsa -H "${{ env.MIRROR_URL }}" >> ~/.ssh/known_hosts
+          ssh-keyscan -t rsa -H "$(echo "${{ env.MIRROR_URL }}" | awk -F@ '{print $2}' | awk -F/ '{print $1}')" >> ~/.ssh/known_hosts
 
       - name: Mirror repository
         uses: pixta-dev/repository-mirroring-action@main
