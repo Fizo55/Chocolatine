@@ -10,6 +10,7 @@ on:
 
 env:
   MIRROR_URL: ${{ vars.MIRROR_URL }}
+  EPITECH_TOKEN: ${{ secrets.EPITECH_TOKEN }}
 
 jobs:
   check_coding_style:
@@ -23,14 +24,38 @@ jobs:
         run: |
           check.sh $(pwd) $(pwd)
           if [ -f coding-style-reports.log ]; then
-            while read -r line; do
-              file=$(echo "$line" | cut -d ':' -f 1)
-              line_number=$(echo "$line" | cut -d ':' -f 2)
-              error_message=$(echo "$line" | cut -d ':' -f 3-)
-              echo "::error file=$file,line=$line_number:: $error_message"
-            done < coding-style-reports.log
+            echo "ERROR_LOG=$(cat coding-style-reports.log)" >> $GITHUB_ENV
             exit 1
           fi
+
+      - name: Create check run
+        if: failure()
+        run: |
+          curl -X POST -H "Authorization: token ${{ env.EPITECH_TOKEN }}" -H "Accept: application/vnd.github+json" \
+            https://api.github.com/repos/${{ github.repository }}/check-runs \
+            -d '{
+              "name": "Coding Style Check",
+              "head_sha": "${{ github.sha }}",
+              "status": "completed",
+              "conclusion": "failure",
+              "output": {
+                "title": "Coding Style Errors",
+                "summary": "Found coding style errors",
+                "annotations": [
+                  $(
+                    IFS=$'\n'
+                    annotations=()
+                    for line in $ERROR_LOG; do
+                      file=$(echo "$line" | cut -d ':' -f 1)
+                      line_number=$(echo "$line" | cut -d ':' -f 2)
+                      error_message=$(echo "$line" | cut -d ':' -f 3-)
+                      annotations+=("{\"path\":\"$file\",\"start_line\":$line_number,\"end_line\":$line_number,\"annotation_level\":\"failure\",\"message\":\"$error_message\"}")
+                    done
+                    echo "${annotations[*]}" | sed 's/} {/},{/g'
+                  )
+                ]
+              }
+            }'
 
   push_to_mirror:
     if: github.event_name == 'push'
@@ -43,7 +68,7 @@ jobs:
 
       - name: Set up SSH
         run: |
-          echo "${{ secrets.EPITECH_TOKEN }}" > private_key.pem
+          echo "${{ env.EPITECH_TOKEN }}" > private_key.pem
           chmod 600 private_key.pem
           ssh-keyscan -t rsa -H "$(echo "${{ env.MIRROR_URL }}" | awk -F@ '{print $2}' | awk -F/ '{print $1}' | awk -F: '{print $1}')" >> known_hosts
           export GIT_SSH_COMMAND="ssh -i private_key.pem -o UserKnownHostsFile=known_hosts"
@@ -52,4 +77,4 @@ jobs:
         uses: pixta-dev/repository-mirroring-action@main
         with:
           target_repo_url: ${{ env.MIRROR_URL }}
-          ssh_private_key: ${{ secrets.EPITECH_TOKEN }}
+          ssh_private_key: ${{ env.EPITECH_TOKEN }}
