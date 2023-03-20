@@ -7,9 +7,6 @@ on:
   pull_request:
     branches-ignore:
       - 'ga-ignore-*'
-  check_suite:
-    types:
-      - completed
 
 env:
   MIRROR_URL: ${{ vars.MIRROR_URL }}
@@ -20,51 +17,28 @@ jobs:
     container: ghcr.io/epitech/coding-style-checker:latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
       
       - name: Check coding style
         run: |
           check.sh $(pwd) $(pwd)
           if [ -f coding-style-reports.log ]; then
-            echo "ERROR_LOG=$(cat coding-style-reports.log)" >> $GITHUB_ENV
+            while read -r line; do
+              file=$(echo "$line" | cut -d ':' -f 1)
+              line_number=$(echo "$line" | cut -d ':' -f 2)
+              error_message=$(echo "$line" | cut -d ':' -f 3-)
+              path="$GITHUB_WORKSPACE/$file"
+              echo "::error file=$path,line=$line_number:: $error_message"
+            done < coding-style-reports.log
             exit 1
           fi
-
-      - name: Create check run
-        if: failure() && github.event_name != 'check_suite'
-        run: |
-          curl -X POST -H "Authorization: token ${{ secrets.EPITECH_TOKEN }}" -H "Accept: application/vnd.github+json" \
-            https://api.github.com/repos/${{ github.repository }}/check-runs \
-            -d '{
-              "name": "Coding Style Check",
-              "head_sha": "${{ github.sha }}",
-              "status": "completed",
-              "conclusion": "failure",
-              "output": {
-                "title": "Coding Style Errors",
-                "summary": "Found coding style errors",
-                "annotations": [
-                  $(
-                    IFS=$'\n'
-                    annotations=()
-                    for line in $ERROR_LOG; do
-                      file=$(echo "$line" | cut -d ':' -f 1)
-                      line_number=$(echo "$line" | cut -d ':' -f 2)
-                      error_message=$(echo "$line" | cut -d ':' -f 3-)
-                      annotations+=("{\"path\":\"$file\",\"start_line\":$line_number,\"end_line\":$line_number,\"annotation_level\":\"failure\",\"message\":\"$error_message\"}")
-                    done
-                    echo "${annotations[*]}" | sed 's/} {/},{/g'
-                  )
-                ]
-              }
-            }'
 
   push_to_mirror:
     if: github.event_name == 'push'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v2
+        uses: actions/checkout@v3
         with:
           fetch-depth: 0
 
