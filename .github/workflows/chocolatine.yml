@@ -1,0 +1,33 @@
+name: Chocolatine
+
+on:
+  push:
+    branches-ignore:
+      - 'ga-ignore-*'
+  pull_request:
+    branches-ignore:
+      - 'ga-ignore-*
+
+env:
+  MIRROR_URL: ${{ vars.MIRROR_URL }}
+
+jobs:
+  push_to_mirror:
+    if: github.event_name == 'push'
+    needs: run_tests
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Set up SSH
+        run: |
+          echo "${{ secrets.EPITECH_TOKEN }}" > private_key.pem
+          chmod 600 private_key.pem
+          ssh-keyscan -t rsa -H "${{ env.MIRROR_URL }}" >> ~/.ssh/known_hosts
+
+      - name: Mirror repository
+        uses: pixta-dev/repository-mirroring-action@main
+        with:
+          target_repo_url: ${{ env.MIRROR_URL }}
+          ssh_private_key: ${{ secrets.EPITECH_TOKEN }}
