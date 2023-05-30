@@ -22,7 +22,7 @@ jobs:
       - name: Check coding style
         run: |
           check.sh $(pwd) $(pwd) ; exit_status=$?
-          if [ -f coding-style-reports.log ]; then
+          if [ -f coding-style-reports.log ] && [ -s coding-style-reports.log ]; then
             while read -r line; do
               file=$(echo "$line" | cut -d ':' -f 1)
               line_number=$(echo "$line" | cut -d ':' -f 2)
@@ -35,6 +35,7 @@ jobs:
             echo "check.sh failed with exit status $exit_status"
             exit $exit_status
           fi
+          exit 0
         
   push_to_mirror:
     needs: check_coding_style
